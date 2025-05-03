@@ -1,0 +1,47 @@
+package main
+
+import (
+	"crypto/tls"
+	"log"
+	"net/http"
+)
+
+const (
+	certFile = "cert.pem"
+	keyFile  = "key.pem"
+)
+
+func main() {
+	proxy := createProxy()
+	server := createServer(proxy)
+	log.Fatal(server.ListenAndServeTLS(certFile, keyFile))
+}
+
+func createServer(handler http.Handler) *http.Server {
+
+	// Configure server's TLS configurations
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12, // Modern TLS 1.2+ Security
+		NextProtos: []string{"http/1.1"},
+
+		// Modern elliptic curves for ECDHE
+		CurvePreferences: []tls.CurveID{
+			tls.CurveP256,
+			tls.X25519,
+		},
+		// Strong AEAD ciphers
+		PreferServerCipherSuites: true,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,   // Required for HTTP/2
+			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, // Required for HTTP/2
+			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		},
+	}
+
+	return &http.Server{
+		Addr:      ":443",
+		Handler:   handler,
+		TLSConfig: tlsConfig,
+	}
+}
