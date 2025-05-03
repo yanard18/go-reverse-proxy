@@ -7,15 +7,9 @@ import (
 )
 
 const (
-	certFile = "cert.pem"
-	keyFile  = "key.pem"
+	certFile = "certs/cert.pem"
+	keyFile  = "certs/key.pem"
 )
-
-func main() {
-	proxy := createProxy()
-	server := createServer(proxy)
-	log.Fatal(server.ListenAndServeTLS(certFile, keyFile))
-}
 
 func createServer(handler http.Handler) *http.Server {
 
@@ -44,4 +38,10 @@ func createServer(handler http.Handler) *http.Server {
 		Handler:   handler,
 		TLSConfig: tlsConfig,
 	}
+}
+
+func main() {
+	proxy := createProxy()
+	server := createServer(proxy)
+	log.Fatal(server.ListenAndServeTLS(certFile, keyFile))
 }
