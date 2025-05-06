@@ -5,6 +5,7 @@ import (
 	"compress/flate"
 	"compress/gzip"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -25,28 +26,7 @@ func createProxy() *httputil.ReverseProxy {
 	}
 
 	//dify request from proxy to target
-	proxy.Director = func(req *http.Request) {
-
-		if verbosity == VerbosityOriginal || verbosity == VerbosityAll {
-			log.Printf("PROXY -> TARGET [ORIGINAL] |\nMethod: %s\nURL:%s\nHeaders:\n%v",
-				req.Method, req.URL.String(), formatHeaders(req.Header))
-		}
-
-		req.URL.Scheme = target.Scheme
-		req.URL.Host = target.Host
-		req.Host = target.Host // Critic for SNI in TLS handshake
-
-		// Reomving those headers make proxy harder to detect
-		req.Header.Del("X-Forwarded-Proto")
-		req.Header.Del("X-Forwarded-For") // Sets the original IP that made request to proxy
-		req.Header.Del("Forwarded")
-		req.Header.Del("Via")
-
-		if verbosity == VerbosityModified || verbosity == VerbosityAll {
-			log.Printf("PROXY -> TARGET [MODIFIED] |\nMethod: %s\nURL:%s\nHeaders:\n%v",
-				req.Method, req.URL.String(), formatHeaders(req.Header))
-		}
-	}
+	proxy.Director = modifyRequest
 
 	// Modify response from proxy to client
 	proxy.ModifyResponse = modifyResponse
@@ -54,11 +34,48 @@ func createProxy() *httputil.ReverseProxy {
 	return proxy
 }
 
+func modifyRequest(req *http.Request) {
+
+	target, _ := url.Parse("https://www." + targetDomain)
+
+	if verbosity == VerbosityOriginal || verbosity == VerbosityAll {
+		message := fmt.Sprintf("PROXY -> TARGET [ORIGINAL] |\nMethod: %s\nURL:%s\nHeaders:\n%v",
+			req.Method, req.URL.String(), formatHeaders(req.Header))
+
+		if ShouldFilter(message) {
+			log.Println(message)
+		}
+	}
+
+	req.URL.Scheme = target.Scheme
+	req.URL.Host = target.Host
+	req.Host = target.Host // Critic for SNI in TLS handshake
+
+	// Reomving those headers make proxy harder to detect
+	req.Header.Del("X-Forwarded-Proto")
+	req.Header.Del("X-Forwarded-For") // Sets the original IP that made request to proxy
+	req.Header.Del("Forwarded")
+	req.Header.Del("Via")
+
+	if verbosity == VerbosityModified || verbosity == VerbosityAll {
+		message := fmt.Sprintf("PROXY -> TARGET [MODIFIED] |\nMethod: %s\nURL:%s\nHeaders:\n%v",
+			req.Method, req.URL.String(), formatHeaders(req.Header))
+
+		if ShouldFilter(message) {
+			log.Println(message)
+		}
+	}
+}
+
 func modifyResponse(resp *http.Response) error {
 
 	if verbosity == VerbosityOriginal || verbosity == VerbosityAll {
-		log.Printf("CLIENT <- PROXY response [ORIGINAL] |\nStatus Code: %d\nStatus:%s\nHeaders:\n%v",
+		message := fmt.Sprintf("CLIENT <- PROXY response [ORIGINAL] |\nStatus Code: %d\nStatus:%s\nHeaders:\n%v",
 			resp.StatusCode, resp.Status, formatHeaders(resp.Header))
+
+		if ShouldFilter(message) {
+			log.Println(message)
+		}
 	}
 
 	// Check if original response had CORS headers
@@ -128,8 +145,12 @@ func modifyResponse(resp *http.Response) error {
 	}
 
 	if verbosity == VerbosityModified || verbosity == VerbosityAll {
-		log.Printf("CLIENT <- PROXY response [MODIFIED] |\nStatus Code: %d\nStatus:%s\nHeaders:\n%v",
+		message := fmt.Sprintf("CLIENT <- PROXY response [MODIFIED] |\nStatus Code: %d\nStatus:%s\nHeaders:\n%v",
 			resp.StatusCode, resp.Status, formatHeaders(resp.Header))
+
+		if ShouldFilter(message) {
+			log.Println(message)
+		}
 	}
 
 	return nil

