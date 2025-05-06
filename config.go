@@ -10,8 +10,7 @@ type VerbosityLevel int
 
 const (
 	VerbosityNone VerbosityLevel = iota
-	VerbosityOriginal
-	VerbosityModified
+	VerbosityHeaders
 	VerbosityAll
 )
 
@@ -35,7 +34,7 @@ func init() {
 	})
 
 	// Verbosity flags
-	flag.Var(&verbosityFlag{}, "verbose", "Log level [original|modified|all]")
+	flag.Var(&verbosityFlag{}, "verbose", "Log level [headers|all]")
 	flag.Var(&verbosityFlag{}, "v", "Shorthand for verbose")
 }
 
@@ -44,10 +43,8 @@ type verbosityFlag struct{}
 
 func (v *verbosityFlag) Set(s string) error {
 	switch s {
-	case "original":
-		verbosity = VerbosityOriginal
-	case "modified":
-		verbosity = VerbosityModified
+	case "headers":
+		verbosity = VerbosityHeaders
 	case "all":
 		verbosity = VerbosityAll
 	default:

