@@ -23,8 +23,8 @@ var (
 
 func init() {
 	// Domain flags
-	flag.StringVar(&targetDomain, "target", "example.com", "Original target domain")
-	flag.StringVar(&phishingDomain, "phishing", "ex-ample.com", "Phishing domain to inject")
+	flag.StringVar(&targetDomain, "target", "www.example.com", "Original target domain")
+	flag.StringVar(&phishingDomain, "phishing", "localhost", "Phishing domain to inject")
 
 	// Verbosity flags
 	flag.Var(&verbosityFlag{}, "verbose", "Log level [original|modified|all]")
